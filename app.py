@@ -1,79 +1,64 @@
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS  # Import CORS for frontend compatibility
+let tasks = [];
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS to allow frontend to communicate with backend
+// Function to render tasks to the UI
+function renderTasks() {
+    const taskListContainer = document.getElementById('taskListContainer');
+    taskListContainer.innerHTML = ''; // Clear current tasks
 
-# Database Configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///bank.db"  # Change if using MySQL/PostgreSQL
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    // If tasks are present in the array, display them
+    tasks.forEach((task, index) => {
+        const taskElement = document.createElement('div');
+        taskElement.classList.add('task-item');
 
-db = SQLAlchemy(app)
+        // Ensure that task title is properly rendered
+        taskElement.innerHTML = `
+      <p><strong>${task.title}</strong></p> <!-- Display task title here -->
+      <p>${task.description}</p>
+      <p class="task-status">Status: ${task.status}</p>
+      <button onclick="deleteTask(${index})">Delete</button>
+    `;
 
-# User Model
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    balance = db.Column(db.Float, nullable=False, default=0.0)
+        taskListContainer.appendChild(taskElement);
+    });
+}
 
-# Create database tables
-with app.app_context():
-    db.create_all()
+// Function to add a new task
+function addTask() {
+    const title = document.getElementById('taskTitle').value;
+    const description = document.getElementById('taskDescription').value;
+    const status = document.getElementById('taskStatus').value;
 
-# Get all users
-@app.route("/users", methods=["GET"])
-def get_users():
-    users = User.query.all()
-    return jsonify([{"id": u.id, "name": u.name, "balance": u.balance} for u in users])
+    // Ensure that title is not empty
+    if (title.trim() === "") {
+        alert("Please provide a task title!");
+        return;
+    }
 
-# Add User
-@app.route("/users", methods=["POST"])
-def add_user():
-    try:
-        data = request.json
-        if "name" not in data or "balance" not in data:
-            return jsonify({"error": "Missing 'name' or 'balance'"}), 400
+    // Create a new task object
+    const newTask = {
+        title,
+        description,
+        status
+    };
 
-        new_user = User(name=data["name"], balance=data["balance"])
-        db.session.add(new_user)
-        db.session.commit()
-        return jsonify({"message": "User added!", "id": new_user.id})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    // Add the new task to the tasks array
+    tasks.push(newTask);
 
-# Deposit Money
-@app.route("/deposit", methods=["POST"])
-def deposit():
-    try:
-        data = request.json
-        user = User.query.get(data["id"])
-        if not user:
-            return jsonify({"message": "User not found"}), 404
+    // Log the tasks array to check if the task was properly added
+    console.log("Tasks after adding new task:", tasks);
 
-        user.balance += data["amount"]
-        db.session.commit()
-        return jsonify({"message": "Deposit successful!", "balance": user.balance})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    // Clear input fields and re-render tasks
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDescription').value = '';
+    document.getElementById('taskStatus').value = 'Pending';
+    renderTasks();
+}
 
-# Withdraw Money
-@app.route("/withdraw", methods=["POST"])
-def withdraw():
-    try:
-        data = request.json
-        user = User.query.get(data["id"])
-        if not user:
-            return jsonify({"message": "User not found"}), 404
+// Function to delete a task
+function deleteTask(index) {
+    tasks.splice(index, 1); // Remove the task from the array
+    renderTasks(); // Re-render the task list
+}
 
-        if user.balance < data["amount"]:
-            return jsonify({"message": "Insufficient balance"}), 400
-
-        user.balance -= data["amount"]
-        db.session.commit()
-        return jsonify({"message": "Withdrawal successful!", "balance": user.balance})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True)
+// Call renderTasks on page load to display tasks if any exist
+document.addEventListener('DOMContentLoaded', renderTasks);
